@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - LPG Booking</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🛢️ LPG Booking System</h1>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="login.html">Login</a></li>
+                <li><a href="register.html">Register</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="form-container">
+        <h2>Create New Account</h2>
+        <form id="registerForm">
+            <input type="text" id="fullName" placeholder="Full Name" required>
+            <input type="email" id="email" placeholder="Email Address" required>
+            <input type="tel" id="phone" placeholder="Phone Number" required>
+            <textarea id="address" placeholder="Your Address" rows="3" required></textarea>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+            <button type="submit" class="btn btn-primary">Register</button>
+            <p id="message" style="text-align:center; margin-top:15px;"></p>
+            <p style="text-align:center; margin-top:15px;">
+                Already have an account? <a href="login.html">Login here</a>
+            </p>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const message = document.getElementById('message');
+            
+            if (password !== confirmPassword) {
+                message.style.color = 'red';
+                message.textContent = 'Passwords do not match';
+                return;
+            }
+            
+            const userData = {
+                full_name: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value,
+                password: password
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    message.style.color = 'green';
+                    message.textContent = 'Registration successful! Redirecting to login...';
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    message.style.color = 'red';
+                    message.textContent = data.error;
+                }
+            } catch (error) {
+                message.style.color = 'red';
+                message.textContent = 'Error connecting to server';
+            }
+        });
+    </script>
+</body>
+</html>

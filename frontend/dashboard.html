@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - LPG Booking</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🛢️ LPG Booking System</h1>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="#" id="logoutBtn">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- Booking Section -->
+        <div class="booking-section">
+            <h2>📦 Book New Cylinder</h2>
+            <form id="bookingForm">
+                <select id="cylinderType" required>
+                    <option value="">Select Cylinder Type</option>
+                </select>
+                <textarea id="deliveryAddress" placeholder="Delivery Address" rows="3" required></textarea>
+                <input type="date" id="preferredDate" required>
+                <button type="submit" class="btn btn-primary">Book Now</button>
+                <p id="bookingMessage" style="margin-top: 15px;"></p>
+            </form>
+        </div>
+
+        <!-- Booking History Section -->
+        <div class="history-section">
+            <h2>📋 My Booking History</h2>
+            <div id="bookingHistory">
+                <p style="text-align: center; color: #666;">Loading bookings...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        
+        // Get user from localStorage
+        const user = JSON.parse(localStorage.getItem('user'));
+        
+        // Check if user is logged in
+        if (!user) {
+            window.location.href = 'login.html';
+        }
+
+        // Load cylinders when page loads
+        async function loadCylinders() {
+            try {
+                const response = await fetch(`${API_URL}/cylinders`);
+                const cylinders = await response.json();
+                
+                const select = document.getElementById('cylinderType');
+                select.innerHTML = '<option value="">Select Cylinder Type</option>';
+                
+                cylinders.forEach(cylinder => {
+                    const option = document.createElement('option');
+                    option.value = cylinder.cylinder_id;
+                    option.textContent = `${cylinder.type} - ${cylinder.weight_kg}kg - ₹${cylinder.price}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading cylinders:', error);
+                document.getElementById('bookingMessage').innerHTML = '<span style="color:red;">Error loading cylinders</span>';
+            }
+        }
+
+        // Load user's booking history
+        // Load user's booking history
+async function loadBookings() {
+    try {
+        const response = await fetch(`${API_URL}/bookings/user?user_id=${user.user_id}`);
+        const bookings = await response.json();
+        
+        const historyDiv = document.getElementById('bookingHistory');
+        
+        if (bookings.length === 0) {
+            historyDiv.innerHTML = '<p style="text-align: center; color: #666;">No bookings found. Book your first cylinder!</p>';
+            return;
+        }
+        
+        historyDiv.innerHTML = '';
+        bookings.forEach(booking => {
+            const statusClass = `status-${booking.status}`;
+            const card = document.createElement('div');
+            card.className = 'booking-card';
+            card.id = `booking-${booking.booking_id}`;
+            
+            // Show cancel button only if booking is pending or confirmed
+            const canCancel = (booking.status === 'pending' || booking.status === 'confirmed');
+            
+            card.innerHTML = `
+                <h4>Booking #: ${booking.booking_number}</h4>
+                <p><strong>Cylinder:</strong> ${booking.type} (${booking.weight_kg}kg)</p>
+                <p><strong>Price:</strong> ₹${booking.price}</p>
+                <p><strong>Booking Date:</strong> ${new Date(booking.booking_date).toLocaleDateString()}</p>
+                <p><strong>Delivery Address:</strong> ${booking.delivery_address}</p>
+                <p><strong>Status:</strong> <span class="${statusClass}">${booking.status.toUpperCase()}</span></p>
+                ${canCancel ? `<button onclick="cancelBooking(${booking.booking_id}, '${booking.booking_number}')" class="btn btn-danger" style="margin-top: 10px;">Cancel Order</button>` : ''}
+            `;
+            historyDiv.appendChild(card);
+        });
+    } catch (error) {
+        console.error('Error loading bookings:', error);
+        document.getElementById('bookingHistory').innerHTML = '<p style="text-align: center; color: red;">Error loading bookings</p>';
+    }
+}
+
+// Cancel booking function
+async function cancelBooking(bookingId, bookingNumber) {
+    if (confirm(`Are you sure you want to cancel booking ${bookingNumber}?`)) {
+        try {
+            const response = await fetch(`${API_URL}/bookings/${bookingId}/cancel`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(`✅ Booking ${bookingNumber} cancelled successfully!`);
+                loadBookings(); // Refresh the booking list
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error connecting to server');
+        }
+    }
+}
+
+        // Book new cylinder
+        document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cylinderId = document.getElementById('cylinderType').value;
+            const deliveryAddress = document.getElementById('deliveryAddress').value;
+            const preferredDate = document.getElementById('preferredDate').value;
+            const message = document.getElementById('bookingMessage');
+            
+            if (!cylinderId) {
+                message.style.color = 'red';
+                message.textContent = 'Please select a cylinder type';
+                return;
+            }
+            
+            if (!deliveryAddress) {
+                message.style.color = 'red';
+                message.textContent = 'Please enter delivery address';
+                return;
+            }
+            
+            if (!preferredDate) {
+                message.style.color = 'red';
+                message.textContent = 'Please select delivery date';
+                return;
+            }
+            
+            const bookingData = {
+                user_id: user.user_id,
+                cylinder_id: parseInt(cylinderId),
+                delivery_address: deliveryAddress,
+                preferred_delivery_date: preferredDate
+            };
+            
+            console.log("Sending booking:", bookingData); // Debug
+            
+            try {
+                const response = await fetch(`${API_URL}/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+                
+                const data = await response.json();
+                console.log("Response:", data); // Debug
+                
+                if (response.ok) {
+                    message.style.color = 'green';
+                    message.textContent = `✅ Booking successful! Booking ID: ${data.booking_number}`;
+                    document.getElementById('bookingForm').reset();
+                    loadBookings(); // Refresh booking history
+                    setTimeout(() => {
+                        message.textContent = '';
+                    }, 5000);
+                } else {
+                    message.style.color = 'red';
+                    message.textContent = data.error || 'Booking failed';
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                message.style.color = 'red';
+                message.textContent = 'Error connecting to server. Make sure backend is running.';
+            }
+        });
+
+        // Logout function
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        });
+
+        // Load data when page loads
+        loadCylinders();
+        loadBookings();
+    </script>
+</body>
+</html>
